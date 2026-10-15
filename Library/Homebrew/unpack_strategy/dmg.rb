@@ -252,12 +252,21 @@ module UnpackStrategy
 
     sig { override.params(unpack_dir: Pathname, basename: Pathname, verbose: T::Boolean).void }
     def extract_to_dir(unpack_dir, basename:, verbose:)
-      mount(verbose:) do |mounts|
-        raise "No mounts found in '#{path}'; perhaps this is a bad disk image?" if mounts.empty?
+      tries = 3
+      begin
+        mount(verbose:) do |mounts|
+          raise "No mounts found in '#{path}'; perhaps this is a bad disk image?" if mounts.empty?
 
-        mounts.each do |mount|
-          mount.extract(to: unpack_dir, verbose:)
+          mounts.each do |mount|
+            mount.extract(to: unpack_dir, verbose:)
+          end
         end
+      rescue Bom::EmptyError => e
+        raise e if (tries -= 1).zero?
+
+        odebug "Remounting '#{path}' after finding an empty BOM."
+        sleep 1
+        retry
       end
     end
   end

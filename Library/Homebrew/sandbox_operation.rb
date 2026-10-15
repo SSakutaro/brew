@@ -28,9 +28,13 @@ when "extract"
       path, ref_type: payload["ref_type"]&.to_sym, ref: payload["ref"], merge_xattrs: payload.fetch("merge_xattrs")
     )
   end
-  strategy.extract(to: Pathname(payload.fetch("to")), basename: payload["basename"],
-                   verbose: payload.fetch("verbose"))
-  nil
+  begin
+    strategy.extract(to: Pathname(payload.fetch("to")), basename: payload["basename"],
+                     verbose: payload.fetch("verbose"))
+    nil
+  rescue UnpackStrategy::Dmg::Bom::EmptyError
+    "empty_dmg_bom"
+  end
 when "relocate", "relocate_prefix", "fix_linkage"
   require "keg"
   keg = Keg.new(Pathname(payload.fetch("path")))
