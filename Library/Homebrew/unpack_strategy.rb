@@ -188,12 +188,15 @@ module UnpackStrategy
     # Mount disk images outside the extraction sandbox; Dmg::Mount sandboxes the copy.
     if !is_a?(Dmg) && Sandbox.isolate_operation?
       move = is_a?(Directory) && move?
-      Sandbox.operation(
+      if Sandbox.operation(
         "extract",
         JSON.generate(strategy: self.class.name, path: path.to_s, to: unpack_dir.to_s, basename: basename.to_s,
                       verbose:, ref_type: @ref_type, ref: @ref, merge_xattrs:, move:),
         read_paths: [path], write_paths: [unpack_dir, *(path if move)], temporary_directory:,
-      )
+      ) == JSON.generate("empty_dmg_bom")
+        raise Dmg::Bom::EmptyError, path
+      end
+
       return
     end
 

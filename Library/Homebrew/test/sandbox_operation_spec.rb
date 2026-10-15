@@ -61,6 +61,16 @@ RSpec.describe Sandbox do
     expect(directory/"link").to be_a_symlink
   end
 
+  it "preserves empty disk-image listing errors across the worker boundary", :needs_macos do
+    tools = mktmpdir
+    (tools/"find").write("#!/bin/sh\nexit 0\n")
+    (tools/"find").chmod(0755)
+    ENV["PATH"] = "#{tools}:#{ENV.fetch("PATH")}"
+
+    expect { UnpackStrategy::Dmg::Mount.new(mktmpdir).extract(to: mktmpdir) }
+      .to raise_error(UnpackStrategy::Dmg::Bom::EmptyError)
+  end
+
   it "rejects an extraction directory replaced with a symlink before granting access" do
     strategy = UnpackStrategy::Tar.new(archive)
     outside = mktmpdir
