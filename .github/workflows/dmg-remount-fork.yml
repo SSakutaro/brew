@@ -1,0 +1,56 @@
+name: DMG causality investigation
+
+on:
+  pull_request:
+    branches:
+      - dmg-remount-baseline
+
+permissions:
+  contents: read
+
+env:
+  HOMEBREW_DEVELOPER: 1
+  HOMEBREW_NO_AUTO_UPDATE: 1
+  HOMEBREW_NO_ENV_HINTS: 1
+  HOMEBREW_NO_INSTALL_CLEANUP: 1
+
+defaults:
+  run:
+    shell: bash -euo pipefail {0}
+
+concurrency:
+  group: dmg-remount-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  investigation:
+    name: Direct DMG (${{ matrix.mode }}, ${{ matrix.sample }})
+    if: github.repository == 'SSakutaro/brew'
+    runs-on: xcode-27
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        mode: [running, paused]
+        sample: [1, 2]
+    steps:
+      - name: Set up Homebrew and Casks
+        id: homebrew
+        uses: Homebrew/actions/setup-homebrew@e99025eb970cfa124b8284a35463d87426917478 # 2026.09.28.1
+        with:
+          core: true
+          cask: true
+
+      - name: Observe mounts without Homebrew extraction
+        working-directory: ${{ steps.homebrew.outputs.repository-path }}
+        env:
+          DMG_SIMULATOR_MODE: ${{ matrix.mode }}
+        run: python3 .github/scripts/dmg-causality.py
+
+      - name: Upload diagnostic logs
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: dmg-causality-${{ matrix.mode }}-${{ matrix.sample }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/dmg-causality-results
+          if-no-files-found: warn
